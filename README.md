@@ -1,1 +1,1 @@
-# RADIO-T
+# Go Radio-T package
