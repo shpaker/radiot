@@ -15,7 +15,7 @@ var (
 
 func main() {
 	// подключаемся к боту с помощью токена
-	bot, err := tgbotapi.NewBotAPI("135658323:AAHhyFem50A0Ht3Rz6c_U0Hq-UYWNL3FYLg")
+	bot, err := tgbotapi.NewBotAPI("TOKEN")
 	if err != nil {
 		log.Panic(err)
 	}
