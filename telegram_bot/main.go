@@ -1,77 +1,82 @@
 package main
 
 import (
-	"github.com/Syfaro/telegram-bot-api"
-	"github.com/shpaker/radiot"
+	rt "github.com/shpaker/radiot"
+	"github.com/tucnak/telebot"
 
+	"flag"
 	"log"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var (
-	rtb *radiot.JsonFile
+	pathToJsonFile string
+	token          string
+	updateTime     uint
+	bot            *telebot.Bot
+	rtJson         *rt.JsonFile
 )
 
-func main() {
-	// подключаемся к боту с помощью токена
-	bot, err := tgbotapi.NewBotAPI("TOKEN")
-	if err != nil {
-		log.Panic(err)
-	}
+func init() {
+	var err error
 
-	rtb, err = radiot.NewJsonFile("./")
+	flag.StringVar(&pathToJsonFile, "path", "./", "path to folder with radiot.json")
+	flag.StringVar(&token, "token", "", "telegram's bot token string")
+	flag.UintVar(&updateTime, "update", 30, "update time")
+	flag.Parse()
+
+	bot, err = telebot.NewBot(token)
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = rtb.UpdateJsonFile()
+
+	rtJson, err = rt.NewJsonFile(pathToJsonFile)
 	if err != nil {
-		log.Fatal()
+		log.Fatal(err)
 	}
 
-	// bot.Debug = true
-	log.Printf("Authorized on account %s", bot.Self.UserName)
+}
 
-	// инициализируем канал, куда будут прилетать обновления от API
-	var ucfg tgbotapi.UpdateConfig = tgbotapi.NewUpdate(0)
-	ucfg.Timeout = 60
-	err = bot.UpdatesChan(ucfg)
-	// читаем обновления из канала
+func updateFromSite() {
 	for {
-		select {
-		case update := <-bot.Updates:
+		rtJson.UpdateJsonFile()
+		time.Sleep(time.Duration(updateTime) * time.Minute)
+	}
+}
 
-			var cmd, attr string
+func main() {
 
-			chatID := update.Message.Chat.ID
+	go updateFromSite()
 
-			// Текст сообщения
-			cmd = strings.Split(update.Message.Text, " ")[0]
-			if len(strings.Split(update.Message.Text, " ")) > 1 {
-				attr = strings.Split(update.Message.Text, " ")[1]
-			}
+	messages := make(chan telebot.Message)
+	bot.Listen(messages, 1*time.Second)
 
-			switch cmd {
-			case "/latest":
-				msg := tgbotapi.NewMessage(chatID, "reply")
-				// и отправляем его
-				bot.SendMessage(msg)
-			case "/show":
-				var id int
-				var msg tgbotapi.MessageConfig
-				if attr == "" {
-					attr = strconv.Itoa(rtb.GetLatestEpisodeId())
-				}
-				id, err := strconv.Atoi(attr)
-				if err != nil {
-					msg = tgbotapi.NewMessage(chatID, "Неверно переданный номер выпуска")
+	for message := range messages {
+		var text string
+		switch {
+		case strings.SplitN(message.Text, " ", 2)[0] == "/show":
+			if strings.Count(message.Text, " ") > 0 {
+				epId, err := strconv.Atoi(strings.SplitN(message.Text, " ", 2)[1])
+				if err != nil || epId < 0 || epId > rtJson.GetLatestEpisodeId() {
+					text = "🖐 Указанного выпуска не существует"
 				} else {
-					text, _ := rtb.GetEpisodeMessage(id)
-					msg = tgbotapi.NewMessage(chatID, text)
+					if text, err = rtJson.GetEpisodeMessage(epId); err != nil {
+						text = "😡 Указанный выпуск не найден"
+					}
 				}
-				bot.SendMessage(msg)
-
+			} else {
+				text, _ = rtJson.GetEpisodeMessage(rtJson.GetLatestEpisodeId())
 			}
+			bot.SendMessage(message.Chat, text, nil)
+		case message.Text == "/latest":
+			text, _ = rtJson.GetEpisodeMessage(rtJson.GetLatestEpisodeId())
+			bot.SendMessage(message.Chat, text, nil)
+		case message.Text == "/about":
+			text, _ = rtJson.GetEpisodeMessage(rtJson.GetLatestEpisodeId())
+			bot.SendMessage(message.Chat, `🙈 Author: https://telegram.me/shpaker
+🙊 Sources: https://github.com/shpaker/radiot`, nil)
 		}
 	}
 }
