@@ -77,26 +77,26 @@ func (rt *JsonFile) GetEpisodeMessage(id int) (str string, err error) {
 	var themesText string
 
 	for _, th := range episode.Themes {
-		themesText += "  * " + th.Title + "\n  "
+		themesText += "  * " + th.Title + "\n"
 		if th.Link != "" {
 			themesText += th.Link + "\n"
 		}
 	}
 
-	str = `Выпуск ` + episode.Title + `
+	str = `💡 Выпуск ` + episode.Title + `
 ` + episode.Image + `
 
-ТЕМЫ ВЫПУСКА
+🕵 ТЕМЫ ВЫПУСКА
 ` + themesText
 
 	if episode.Sponsor != nil {
-		str += "\nСПОНСОРЫ ЭТОГО ВЫПУСКА\n  " + episode.Sponsor.Title + " " + episode.Sponsor.Link + "\n"
+		str += "\n🍭 СПОНСОРЫ ЭТОГО ВЫПУСКА\n  " + episode.Sponsor.Title + " " + episode.Sponsor.Link + "\n"
 	}
 
-	str += "\n" + strings.ToUpper(episode.Title) + " " + episode.Download + "\n"
+	str += "\n📎 " + strings.ToUpper(episode.Title) + " " + episode.Download + "\n"
 
 	if episode.Pirates != nil {
-		str += "\nПИРАТЫ РТ  " + episode.Pirates.Download
+		str += "\n⚔ ПИРАТЫ РТ  " + episode.Pirates.Download
 	}
 
 	rt.writeToJsonFile()
